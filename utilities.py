@@ -25,8 +25,8 @@ def handle_error(func):
 def replace_with_space(txt):
     return txt.replace('_', ' ')
 
-def human_readable(number):
-    get_date = arrow.get(number)
+def human_readable(date):
+    get_date = arrow.get(date)
     return get_date.humanize()
 
 

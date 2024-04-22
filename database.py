@@ -2,7 +2,7 @@ import sqlite3
 
 
 def create_database():
-    conn = sqlite3.connect('./virtualizor.db')
+    conn = sqlite3.connect('virtualizor.db')
     c = conn.cursor()
 
     c.execute('CREATE TABLE IF NOT EXISTS User(id integer primary key, name text, chat_id integer, '
