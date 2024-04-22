@@ -5,7 +5,7 @@ import arrow
 from datetime import datetime
 
 def report_problem_to_admin(msg):
-    requests.post(telegram_bot_url, data={'chat_id': ADMIN_CHAT_ID, 'text': msg})
+    return requests.post(telegram_bot_url, data={'chat_id': ADMIN_CHAT_ID, 'text': msg})
 
 
 def handle_error(func):
