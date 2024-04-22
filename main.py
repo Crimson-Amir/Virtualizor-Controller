@@ -10,7 +10,7 @@ from telegram.ext import (ApplicationBuilder, ContextTypes, CommandHandler, Conv
 from private import telegram_bot_token, ADMIN_CHAT_ID
 from sqlite_manager import ManageDb
 
-check_every_min = 1
+check_every_min = 30
 END_POINT, API_KEY, API_PASS = range(3)
 
 bandwidth_notification_text = '🔔 [bandWidth Notification] You have consumed {0}% of virtual server {1} bandwidth!\nRemaining traffic: {2} GB'

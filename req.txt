@@ -1,0 +1,9 @@
+certifi==2024.2.2
+charset-normalizer==3.3.2
+distlib==0.3.8
+filelock==3.13.3
+idna==3.6
+platformdirs==4.2.0
+requests==2.31.0
+urllib3==2.2.1
+virtualenv==20.25.1
