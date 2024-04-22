@@ -37,15 +37,16 @@ def sort_data(json_file, special_vps=None, get_detail=False, get_vs_usage_detail
         total_band = float(vps_data.get("bandwidth"))
         band_precent = round((used_band / total_band) * 100, 2)
         time_difference = datetime.now() - registare_time
+        left_band = round(total_band - used_band, 2)
 
         if get_vs_usage_detail:
-            left_band = round(total_band - used_band, 2)
             usage_detail[vps_id] = {'bandwidth_left': band_precent, 'registare_to_now': time_difference.days, 'left_band': left_band}
         elif get_detail:
             vps_info = [f'{replace_with_space(key)} : {values}' for key, values in vps_data.items()]
         else:
             detail = (f'\nHost Name: {vps_data.get("hostname")}'
                       f'\nBand Width: {used_band}/{total_band} GB ({band_precent}%)'
+                      f'\nLeft BandWidth: {left_band} GB'
                       f'\nRegistration: {registare_time} ({human_readable(registare_time)} - {time_difference.days} day)'
                       f'\nOS Name: {vps_data.get("os_name")}'
                       f'\nOS Distro: {vps_data.get("os_distro")}'
