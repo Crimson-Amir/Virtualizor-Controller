@@ -2,7 +2,7 @@ from utilities import handle_error, replace_with_space, report_problem_to_admin,
 import requests
 from datetime import datetime
 from database import create_database
-create_database()
+create_database('virtualizor')
 import logging
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (ApplicationBuilder, ContextTypes, CommandHandler, ConversationHandler, MessageHandler, filters,

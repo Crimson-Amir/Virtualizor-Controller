@@ -28,12 +28,26 @@ class ManageDb:
 
 
     def create_table(self, table: dict):
+        list_of_status = []
         with sqlite3.connect(self.db_name) as db:
             cursor = db.cursor()
             for key, val in table.items():
                 coul = [f"{name} {v}" for name, v in val.items()]
-                cursor.execute("CREATE TABLE IF NOT EXISTS {0} ({1})".format(key, ", ".join(coul)))
+                list_of_status.append(cursor.execute("CREATE TABLE IF NOT EXISTS {0} ({1})".format(key, ", ".join(coul))))
             db.commit()
+            return list_of_status
+
+
+    @handle_exceptions
+    def insert(self, table: str, rows: dict):
+        column = ', '.join(rows.keys())
+        values = [f"'{self.init_name(val)}'" for val in rows.values()]
+
+        with sqlite3.connect(self.db_name) as db:
+            cursor = db.cursor()
+            cursor.execute(f'INSERT INTO {table} ({column}) VALUES ({", ".join(values)})')
+            db.commit()
+        return cursor.lastrowid
 
 
     def select(self, column: str = "*", table: str = "sqlite_master",
@@ -51,18 +65,6 @@ class ManageDb:
             cursor.execute(sql)
             db_values = cursor.fetchall()
         return db_values
-
-
-    @handle_exceptions
-    def insert(self, table: str, rows: dict):
-        column = ', '.join(rows.keys())
-        values = [f"'{self.init_name(val)}'" for val in rows.values()]
-
-        with sqlite3.connect(self.db_name) as db:
-            cursor = db.cursor()
-            cursor.execute(f'INSERT INTO {table} ({column}) VALUES ({", ".join(values)})')
-            db.commit()
-        return cursor.lastrowid
 
 
     def delete(self, table: dict):
