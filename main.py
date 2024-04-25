@@ -9,6 +9,7 @@ from telegram.ext import (ApplicationBuilder, ContextTypes, CommandHandler, Conv
                           CallbackQueryHandler)
 from private import telegram_bot_token, ADMIN_CHAT_ID
 from sqlite_manager import ManageDb
+import pytz
 
 check_every_min = 30
 END_POINT, API_KEY, API_PASS = range(3)
@@ -36,7 +37,7 @@ def sort_data(json_file, special_vps=None, get_detail=False, get_vs_usage_detail
         used_band = float(vps_data.get("used_bandwidth"))
         total_band = float(vps_data.get("bandwidth"))
         band_precent = round((used_band / total_band) * 100, 2)
-        time_difference = datetime.now() - registare_time
+        time_difference = datetime.now(pytz.timezone('Asia/Tehran')) - registare_time
         left_band = round(total_band - used_band, 2)
 
         if get_vs_usage_detail:
@@ -242,18 +243,21 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 registare_to_now = details.get('registare_to_now')
                 left_band = details.get('left_band')
 
-                print('**************|', vs_id, bandwidth_precent, registare_to_now, left_band, check_notif, chat_id)
-
                 if bandwidth_precent >= bandwidth_notification_precent and not check_notif[0][0]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 1}}, where=f'vps_id = {vs_id}')
                     text = bandwidth_notification_text.format(bandwidth_precent, vs_id, left_band)
                     await context.bot.send_message(text=text, chat_id=chat_id)
+
+                elif check_notif[0][0] and bandwidth_precent < bandwidth_notification_precent:
+                    sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 0}}, where=f'vps_id = {vs_id}')
 
                 if registare_to_now >= period_notification_day and not check_notif[0][1]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 1}}, where=f'vps_id = {vs_id}')
                     text = period_notification_text.format(registare_to_now, vs_id)
                     await context.bot.send_message(text=text, chat_id=chat_id)
 
+                elif check_notif[0][1] and registare_to_now < period_notification_day:
+                    sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 0}}, where=f'vps_id = {vs_id}')
 
 @handle_error
 async def set_bandwith_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -261,7 +265,10 @@ async def set_bandwith_notification(update: Update, context: ContextTypes.DEFAUL
     if get_precent <= 0 or get_precent > 100:
         raise ValueError('precent higher or lighter 0 and 100')
     chat_id = update.effective_chat.id
+
     sqlite_manager.update({'User': {'notification_band': get_precent}}, where=f'chat_id = {chat_id}')
+    sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 0}}, where=f'chat_id = {chat_id}')
+
     await context.bot.send_message(text='Notification Setting Changed successfully!', chat_id=chat_id)
 
 
@@ -271,7 +278,10 @@ async def set_period_notification(update: Update, context: ContextTypes.DEFAULT_
     if get_day <= 0:
         raise ValueError('day lighter than 0')
     chat_id = update.effective_chat.id
+
     sqlite_manager.update({'User': {'notification_day': get_day}}, where=f'chat_id = {chat_id}')
+    sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 0}}, where=f'chat_id = {chat_id}')
+
     await context.bot.send_message(text='Notification Setting Changed successfully!', chat_id=chat_id)
 
 
