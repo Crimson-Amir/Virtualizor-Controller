@@ -2,7 +2,16 @@ import sqlite3
 import functools
 from utilities import report_problem_to_admin
 
-class ManageDb:
+
+class Singleton(type):
+    _isinstance = None
+    def __call__(self, *args, **kwargs):
+        if not self._isinstance:
+            self._isinstance = super().__call__(*args, **kwargs)
+        return self._isinstance
+
+
+class ManageDb(metaclass=Singleton):
     def __init__(self, db_name: str = "test"):
         self.db_name = db_name + ".db"
 

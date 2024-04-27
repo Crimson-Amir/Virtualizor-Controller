@@ -11,7 +11,7 @@ from private import telegram_bot_token, ADMIN_CHAT_ID
 from sqlite_manager import ManageDb
 import pytz
 
-check_every_min = 30
+check_every_min = 10
 END_POINT, API_KEY, API_PASS = range(3)
 
 bandwidth_notification_text = '🔔 [bandWidth Notification] You have consumed {0}% of virtual server {1} bandwidth!\nRemaining traffic: {2} GB'
@@ -37,7 +37,7 @@ def sort_data(json_file, special_vps=None, get_detail=False, get_vs_usage_detail
         used_band = float(vps_data.get("used_bandwidth"))
         total_band = float(vps_data.get("bandwidth"))
         band_precent = round((used_band / total_band) * 100, 2)
-        time_difference = datetime.now(pytz.timezone('Asia/Tehran')) - registare_time
+        time_difference = datetime.now(pytz.timezone('Asia/Tehran')).replace(tzinfo=None) - registare_time
         left_band = round(total_band - used_band, 2)
 
         if get_vs_usage_detail:
@@ -102,7 +102,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
                             f"UserName: @{user_detail['username']}\nID: <a href=\"tg://user?id={user_detail['id']}\">{user_detail['id']}</a>"
                             f"\nDate: {date}")
 
-        context.bot.send_message(ADMIN_CHAT_ID, text=start_text_notif, parse_mode="HTML")
+        context.bot.send_message(chat_id=ADMIN_CHAT_ID, text=start_text_notif, parse_mode="HTML")
         sqlite_manager.insert('User', rows={'name': user_detail.first_name, 'chat_id': user_detail.id, 'date': date})
 
     text = '<b>Hi, you can connect your Virtualizor account through the button below:</b>'
@@ -220,20 +220,21 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def notification_job(context: ContextTypes.DEFAULT_TYPE):
     get_all_api = sqlite_manager.select(table='API_DETAIL')
     get_all_notification = sqlite_manager.select(table='VS_NOTIFICATION')
-    get_notification_setting = sqlite_manager.select(column='chat_id,notification_band,notification_day', table='User')
+    get_notification_setting = sqlite_manager.select(column='chat_id,notification_band,notification_day,notification_traffic', table='User')
 
     api_data = [(data[1], data[2], data[3], data[4]) for data in get_all_api]
 
     for chat_id, end_point, api_key, api_pass in api_data:
 
-        get_user_notif_setting = [(search[1], search[2]) for search in get_notification_setting if search[0] == chat_id]
+        get_user_notif_setting = [(search[1], search[2], search[3]) for search in get_notification_setting if search[0] == chat_id]
         bandwidth_notification_precent = get_user_notif_setting[0][0]
         period_notification_day = get_user_notif_setting[0][1]
+        period_traffic_gb = get_user_notif_setting[0][2]
 
         get_result = get_result_from_api(end_point, api_key, api_pass, get_vs_usage_detail=True)
         if get_result[0] == 'OK':
             for vs_id, details in get_result[3].items():
-                check_notif = [(search[3], search[4]) for search in get_all_notification if search[2] == chat_id and search[1] == int(vs_id)]
+                check_notif = [(search[3], search[4], search[5]) for search in get_all_notification if search[2] == chat_id and search[1] == int(vs_id)]
 
                 if not check_notif:
                     sqlite_manager.insert('VS_NOTIFICATION', {'vps_id': int(vs_id) ,'chat_id': chat_id, 'notification_band': 0, 'notification_day': 0, 'date': datetime.now()})
@@ -258,6 +259,15 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
 
                 elif check_notif[0][1] and registare_to_now < period_notification_day:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 0}}, where=f'vps_id = {vs_id}')
+
+                if left_band >= period_traffic_gb and not check_notif[0][2]:
+                    sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 1}}, where=f'vps_id = {vs_id}')
+                    text = period_notification_text.format(registare_to_now, vs_id)
+                    await context.bot.send_message(text=text, chat_id=chat_id)
+
+                elif check_notif[0][2] and left_band < period_traffic_gb:
+                    sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 0}}, where=f'vps_id = {vs_id}')
+
 
 @handle_error
 async def set_bandwith_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -286,6 +296,19 @@ async def set_period_notification(update: Update, context: ContextTypes.DEFAULT_
 
 
 @handle_error
+async def set_traffic_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    get_day = int(context.args[0])
+    if get_day <= 0:
+        raise ValueError('traffic lighter than 0')
+    chat_id = update.effective_chat.id
+
+    sqlite_manager.update({'User': {'notification_traffic': get_day}}, where=f'chat_id = {chat_id}')
+    sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 0}}, where=f'chat_id = {chat_id}')
+
+    await context.bot.send_message(text='Notification Setting Changed successfully!', chat_id=chat_id)
+
+
+@handle_error
 async def clear_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 0, 'notification_day': 0}}, where=f'chat_id = {chat_id}')
@@ -295,9 +318,12 @@ async def clear_notification(update: Update, context: ContextTypes.DEFAULT_TYPE)
 if __name__ == '__main__':
     application = ApplicationBuilder().token(telegram_bot_token).build()
     application.add_handler(CommandHandler('start', start))
+
     application.add_handler(CommandHandler('set_bandwith_notification', set_bandwith_notification))
     application.add_handler(CommandHandler('set_period_notification', set_period_notification))
+    application.add_handler(CommandHandler('set_traffic_notification', set_period_notification))
     application.add_handler(CommandHandler('clear_notification', clear_notification))
+
     application.add_handler(conv_handler)
     application.add_handler(CallbackQueryHandler(main_menu, 'main_menu'))
     application.job_queue.run_repeating(notification_job, interval=check_every_min * 60, first=0)
