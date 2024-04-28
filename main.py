@@ -11,11 +11,12 @@ from private import telegram_bot_token, ADMIN_CHAT_ID
 from sqlite_manager import ManageDb
 import pytz
 
-check_every_min = 10
+check_every_min = 1
 END_POINT, API_KEY, API_PASS = range(3)
 
 bandwidth_notification_text = '🔔 [bandWidth Notification] You have consumed {0}% of virtual server {1} bandwidth!\nRemaining traffic: {2} GB'
 period_notification_text = '🔔 [Period Notification] {0} days have passed since the registration of virtual server {1}'
+traffic_notification_text = '🔔 [Traffic Notification] The remaining traffic is {0} GB. virtual server {1}'
 
 sqlite_manager = ManageDb('virtualizor')
 
@@ -226,15 +227,17 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
 
     for chat_id, end_point, api_key, api_pass in api_data:
 
+
         get_user_notif_setting = [(search[1], search[2], search[3]) for search in get_notification_setting if search[0] == chat_id]
+
         bandwidth_notification_precent = get_user_notif_setting[0][0]
         period_notification_day = get_user_notif_setting[0][1]
-        period_traffic_gb = get_user_notif_setting[0][2]
+        left_traffic_gb = get_user_notif_setting[0][2]
 
         get_result = get_result_from_api(end_point, api_key, api_pass, get_vs_usage_detail=True)
         if get_result[0] == 'OK':
             for vs_id, details in get_result[3].items():
-                check_notif = [(search[3], search[4], search[5]) for search in get_all_notification if search[2] == chat_id and search[1] == int(vs_id)]
+                check_notif = [(search[3], search[4], search[6]) for search in get_all_notification if search[2] == chat_id and search[1] == int(vs_id)]
 
                 if not check_notif:
                     sqlite_manager.insert('VS_NOTIFICATION', {'vps_id': int(vs_id) ,'chat_id': chat_id, 'notification_band': 0, 'notification_day': 0, 'date': datetime.now()})
@@ -260,12 +263,12 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 elif check_notif[0][1] and registare_to_now < period_notification_day:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 0}}, where=f'vps_id = {vs_id}')
 
-                if left_band >= period_traffic_gb and not check_notif[0][2]:
+                if left_band <= left_traffic_gb and not check_notif[0][2]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 1}}, where=f'vps_id = {vs_id}')
-                    text = period_notification_text.format(registare_to_now, vs_id)
+                    text = traffic_notification_text.format(left_band, vs_id)
                     await context.bot.send_message(text=text, chat_id=chat_id)
 
-                elif check_notif[0][2] and left_band < period_traffic_gb:
+                elif check_notif[0][2] and left_band > left_traffic_gb:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 0}}, where=f'vps_id = {vs_id}')
 
 
@@ -297,12 +300,12 @@ async def set_period_notification(update: Update, context: ContextTypes.DEFAULT_
 
 @handle_error
 async def set_traffic_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    get_day = int(context.args[0])
-    if get_day <= 0:
+    get_traffic = int(context.args[0])
+    if get_traffic <= 0:
         raise ValueError('traffic lighter than 0')
     chat_id = update.effective_chat.id
 
-    sqlite_manager.update({'User': {'notification_traffic': get_day}}, where=f'chat_id = {chat_id}')
+    sqlite_manager.update({'User': {'notification_traffic': get_traffic}}, where=f'chat_id = {chat_id}')
     sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 0}}, where=f'chat_id = {chat_id}')
 
     await context.bot.send_message(text='Notification Setting Changed successfully!', chat_id=chat_id)
@@ -311,7 +314,7 @@ async def set_traffic_notification(update: Update, context: ContextTypes.DEFAULT
 @handle_error
 async def clear_notification(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
-    sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 0, 'notification_day': 0}}, where=f'chat_id = {chat_id}')
+    sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 0, 'notification_day': 0, 'notification_traffic': 0}}, where=f'chat_id = {chat_id}')
     await context.bot.send_message(text='Notification Clear successfully!', chat_id=chat_id)
 
 
@@ -321,7 +324,7 @@ if __name__ == '__main__':
 
     application.add_handler(CommandHandler('set_bandwith_notification', set_bandwith_notification))
     application.add_handler(CommandHandler('set_period_notification', set_period_notification))
-    application.add_handler(CommandHandler('set_traffic_notification', set_period_notification))
+    application.add_handler(CommandHandler('set_traffic_notification', set_traffic_notification))
     application.add_handler(CommandHandler('clear_notification', clear_notification))
 
     application.add_handler(conv_handler)
