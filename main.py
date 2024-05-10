@@ -328,9 +328,9 @@ async def notification_statua(update: Update, context: ContextTypes.DEFAULT_TYPE
     get_notif_value = sqlite_manager.select(column='notification_band,notification_day,notification_traffic',
                                             table='User', where=f'chat_id = {chat_id}')
 
-    text = (f"BandWidth: {get_notif_status[0][0]}% | status: {get_notif_value[0][0]}"
-            f"Passed Period: {get_notif_status[0][1]} Day | status: {get_notif_value[0][1]}"
-            f"Left Traffic: {get_notif_status[0][2]} GB | status: {get_notif_value[0][2]}")
+    text = (f"BandWidth: {get_notif_value[0][0]}% | status: {get_notif_status[0][0]}"
+            f"\n\nPassed Period: {get_notif_value[0][1]} Day | status: {get_notif_status[0][1]}"
+            f"\n\nLeft Traffic: {get_notif_value[0][2]} GB | status: {get_notif_status[0][2]}")
 
     await context.bot.send_message(text=text, chat_id=chat_id)
 
