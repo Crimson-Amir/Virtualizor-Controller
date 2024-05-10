@@ -318,6 +318,23 @@ async def clear_notification(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await context.bot.send_message(text='Notification Clear successfully!', chat_id=chat_id)
 
 
+@handle_error
+async def notification_statua(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+
+    get_notif_status = sqlite_manager.select(column='notification_band, notification_day, notification_traffic',
+                                             table='VS_NOTIFICATION', where=f'chat_id = {chat_id}')
+
+    get_notif_value = sqlite_manager.select(column='notification_band,notification_day,notification_traffic',
+                                            table='User', where=f'chat_id = {chat_id}')
+
+    text = (f"BandWidth: {get_notif_status[0][0]}% | status: {get_notif_value[0][0]}"
+            f"Passed Period: {get_notif_status[0][1]} Day | status: {get_notif_value[0][1]}"
+            f"Left Traffic: {get_notif_status[0][2]} GB | status: {get_notif_value[0][2]}")
+
+    await context.bot.send_message(text=text, chat_id=chat_id)
+
+
 if __name__ == '__main__':
     application = ApplicationBuilder().token(telegram_bot_token).build()
     application.add_handler(CommandHandler('start', start))
@@ -325,10 +342,11 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('set_bandwith_notification', set_bandwith_notification))
     application.add_handler(CommandHandler('set_period_notification', set_period_notification))
     application.add_handler(CommandHandler('set_traffic_notification', set_traffic_notification))
+    application.add_handler(CommandHandler('notification_status', notification_statua))
     application.add_handler(CommandHandler('clear_notification', clear_notification))
 
     application.add_handler(conv_handler)
-    application.add_handler(CallbackQueryHandler(main_menu, 'main_menu'))
+    application.add_handler(CallbackQueryHandler(main_menu, pattern='main_menu'))
     application.job_queue.run_repeating(notification_job, interval=check_every_min * 60, first=0)
     application.run_polling()
 
