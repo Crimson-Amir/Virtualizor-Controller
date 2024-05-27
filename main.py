@@ -8,7 +8,7 @@ from telegram.ext import (ApplicationBuilder, ContextTypes, CommandHandler, Conv
                           CallbackQueryHandler)
 from private import telegram_bot_token, ADMIN_CHAT_ID
 from sqlite_manager import ManageDb
-from vrtualizorApi import run
+from virtualizorApi import run
 
 
 check_every_min = 5
@@ -82,11 +82,12 @@ async def get_api_pass(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_key = context.user_data['api_key']
     end_point = context.user_data['end_point']
 
-    get_result = run(end_point, api_key, api_pass)
+    get_result = await run([end_point], api_key, api_pass)
+    print(get_result)
 
-    if get_result[0]:
+    if get_result:
         keyboard = [[InlineKeyboardButton(f'virtual server {vs}', callback_data=vs)] for vs in get_result[0][1]]
-        text = f"<b>Done! You can view your account details:\n\n{get_result[1]}</b>"
+        text = f"Done! You can view your account details:\n\n{get_result[0][0]}"
 
         sqlite_manager.insert(table='API_DETAIL',
                               rows={'api_key': api_key, 'api_pass': api_pass, 'end_point': end_point,
@@ -136,11 +137,11 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     api_data = [(data[2], data[3], data[4]) for data in get_data]
 
     for end_point, api_key, api_pass in api_data:
-        get_result = run(end_point, api_key, api_pass, special_vps=special_vps, get_detail=get_detail)
+        get_result = await run([end_point], api_key, api_pass, special_vps=special_vps, get_detail=get_detail)
 
-        if get_result[0]:
+        if get_result:
             keyboard.extend([[InlineKeyboardButton(f'virtual server {vs}', callback_data=f'main_menu{vs}')] for vs in get_result[0][1]])
-            text += f"{get_result[0]}"
+            text += f"{get_result[0][0]}"
         else:
             keyboard.append([InlineKeyboardButton('Main Menu', callback_data='main_menu')])
             text += "<b>sorry, something went wrong!</b>"
@@ -168,8 +169,8 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
         period_notification_day = get_user_notif_setting[0][1]
         left_traffic_gb = get_user_notif_setting[0][2]
 
-        get_result = run(end_point, api_key, api_pass, get_vs_usage_detail=True)
-        if get_result[0]:
+        get_result = await run([end_point], api_key, api_pass, get_vs_usage_detail=True)
+        if get_result:
             for vs_id, details in get_result[2].items():
                 check_notif = [(search[3], search[4], search[6]) for search in get_all_notification if search[2] == chat_id and search[1] == int(vs_id)]
 

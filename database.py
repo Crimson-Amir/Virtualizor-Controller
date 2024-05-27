@@ -14,7 +14,8 @@ def create_database(db_name='test'):
               'FOREIGN KEY (chat_id) REFERENCES User (chat_id))')
 
     c.execute('CREATE TABLE IF NOT EXISTS VS_NOTIFICATION(id integer primary key, vps_id integer unique, chat_id INTEGER,'
-              'notification_band integer, notification_day integer, notification_traffic integer, date text,'
+              'notification_band integer DEFAULT 0, notification_day integer DEFAULT 0,'
+              'notification_traffic integer DEFAULT 0, date text,'
               'FOREIGN KEY (chat_id) REFERENCES User (chat_id))')
 
     # c.execute('ALTER TABLE VS_NOTIFICATION ADD COLUMN notification_traffic integer DEFAULT 0')

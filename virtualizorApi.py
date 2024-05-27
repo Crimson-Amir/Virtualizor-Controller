@@ -39,16 +39,16 @@ class SortData:
             else:
                 details = (
                     f'\nHost Name: {vps_data.get("hostname")}'
-                    f'Band Width: {used_band}/{total_band} GB ({band_percent}%)'
-                    f'Left BandWidth: {left_band} GB'
-                    f'Registration: {register_time} ({human_readable(register_time)} - {time_difference.days} day(s))'
-                    f'OS Name: {vps_data.get("os_name")}'
-                    f'OS Distro: {vps_data.get("os_distro")}'
-                    f'CPU Cores: {vps_data.get("cores")}'
-                    f'Network Speed: {vps_data.get("network_speed")}'
-                    f'Ram: {vps_data.get("ram")}'
-                    f'Space: {vps_data.get("space")} GB'
-                    f'IPs: {", ".join(vps_data.get("ips").values())}'
+                    f'\nBand Width: {used_band}/{total_band} GB ({band_percent}%)'
+                    f'\n<b>Left BandWidth: {left_band} GB</b>'
+                    f'\nRegistration: {register_time} ({human_readable(register_time)} - {time_difference.days} day(s))'
+                    f'\nOS Name: {vps_data.get("os_name")}'
+                    f'\nOS Distro: {vps_data.get("os_distro")}'
+                    f'\nCPU Cores: {vps_data.get("cores")}'
+                    f'\nNetwork Speed: {vps_data.get("network_speed")}'
+                    f'\nRam: {vps_data.get("ram")}'
+                    f'\nSpace: {vps_data.get("space")} GB'
+                    f'\nIPs: {", ".join(vps_data.get("ips").values())}'
                 )
                 vps_info = [details]
 
@@ -127,17 +127,17 @@ class FactoryListVs(AbstractVirtualizorFactory):
         return await asyncio.gather(*sort_list_data)
 
 
-async def run_code(endpoint, api_key, api_pass, **kwargs):
+async def run_code(endpoint, api_key, api_pass, special_vps=None, get_detail=None, get_vs_usage_detail=None):
     a = Virtualizor()
     get_result = await a.execute_act(endpoint, api_key, api_pass)
-    sort_list = FactoryListVs(**kwargs)
+    sort_list = FactoryListVs(special_vps=special_vps, get_detail=get_detail, get_vs_usage_detail=get_vs_usage_detail)
     return await sort_list.execute(get_result)
 
 
-def run(endpoint, api_key, api_pass, special_vps=None, get_detail=None, get_vs_usage_detail=None):
-    return asyncio.run(run_code(endpoint, api_key, api_pass,
-                                special_vps=special_vps, get_detail=get_detail, get_vs_usage_detail=get_vs_usage_detail))
+async def run(endpoint, api_key, api_pass, special_vps=None, get_detail=None, get_vs_usage_detail=None):
+    result = await run_code(endpoint, api_key, api_pass, special_vps=special_vps, get_detail=get_detail, get_vs_usage_detail=get_vs_usage_detail)
+    return result
 
 
-a = run(['https://185.215.231.72:4083'], 'FAQPKPC9GPUJNK84', 'DozkjalXanJStE2bcli2Q6wvjAEIT1Fa')
-print(a)
+# a = run(['https://185.215.231.72:4083'], 'FAQPKPC9GPUJNK84', 'DozkjalXanJStE2bcli2Q6wvjAEIT1Fa')
+# print(a)
