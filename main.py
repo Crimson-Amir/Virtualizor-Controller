@@ -1,3 +1,5 @@
+import asyncio
+
 from utilities import handle_error
 from datetime import datetime
 from database import create_database
@@ -11,7 +13,7 @@ from sqlite_manager import ManageDb
 from virtualizorApi import run
 
 
-check_every_min = 5
+check_every_min = 10
 END_POINT, API_KEY, API_PASS = range(3)
 
 bandwidth_notification_text = '🔔 [bandWidth Notification] You have consumed {0}% of virtual server {1} bandwidth!\nRemaining traffic: {2} GB'
@@ -28,6 +30,7 @@ logging.basicConfig(
 
 @handle_error
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+
     user_detail = update.effective_chat
     date = datetime.now()
     get_user_detail_from_db = sqlite_manager.select(table='User', where=f'chat_id={user_detail.id}')
@@ -83,10 +86,15 @@ async def get_api_pass(update: Update, context: ContextTypes.DEFAULT_TYPE):
     end_point = context.user_data['end_point']
 
     get_result = await run([end_point], api_key, api_pass)
-    print(get_result)
 
     if get_result:
-        keyboard = [[InlineKeyboardButton(f'virtual server {vs}', callback_data=vs)] for vs in get_result[0][1]]
+
+        keyboard = []
+        for vs in get_result[0][1]:
+            keyboard.append([InlineKeyboardButton(f'virtual server {vs}', callback_data=vs)])
+            sqlite_manager.insert('VS_NOTIFICATION', {'vps_id': int(vs), 'chat_id': chat_id, 'notification_band': 0,
+                                   'notification_day': 0, 'date': datetime.now()})
+
         text = f"Done! You can view your account details:\n\n{get_result[0][0]}"
 
         sqlite_manager.insert(table='API_DETAIL',
@@ -171,16 +179,18 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
 
         get_result = await run([end_point], api_key, api_pass, get_vs_usage_detail=True)
         if get_result:
-            for vs_id, details in get_result[2].items():
-                check_notif = [(search[3], search[4], search[6]) for search in get_all_notification if search[2] == chat_id and search[1] == int(vs_id)]
+            for vs_id, details in get_result[0][2].items():
+                check_notif = [(search[3], search[4], search[5]) for search in get_all_notification if search[2] == chat_id and search[1] == int(vs_id)]
 
                 if not check_notif:
                     sqlite_manager.insert('VS_NOTIFICATION', {'vps_id': int(vs_id) ,'chat_id': chat_id, 'notification_band': 0, 'notification_day': 0, 'date': datetime.now()})
                     check_notif = [(0, 0)]
 
+
                 bandwidth_precent = details.get('bandwidth_left')
-                registare_to_now = details.get('registare_to_now')
+                registare_to_now = details.get('register_to_now')
                 left_band = details.get('left_band')
+
 
                 if bandwidth_precent >= bandwidth_notification_precent and not check_notif[0][0]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 1}}, where=f'vps_id = {vs_id}')
@@ -198,12 +208,12 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 elif check_notif[0][1] and registare_to_now < period_notification_day:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 0}}, where=f'vps_id = {vs_id}')
 
-                if left_band <= float(left_traffic_gb) and not check_notif[0][2]:
+                if int(left_band) <= left_traffic_gb and not check_notif[0][2]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 1}}, where=f'vps_id = {vs_id}')
                     text = traffic_notification_text.format(left_band, vs_id)
                     await context.bot.send_message(text=text, chat_id=chat_id)
 
-                elif check_notif[0][2] and left_band > float(left_traffic_gb):
+                elif check_notif[0][2] and int(left_band) > left_traffic_gb:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 0}}, where=f'vps_id = {vs_id}')
 
 
@@ -257,15 +267,27 @@ async def clear_notification(update: Update, context: ContextTypes.DEFAULT_TYPE)
 async def notification_statua(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
 
-    get_notif_status = sqlite_manager.select(column='notification_band, notification_day, notification_traffic',
+    get_notif_status = sqlite_manager.select(column='vps_id, notification_band, notification_day, notification_traffic',
                                              table='VS_NOTIFICATION', where=f'chat_id = {chat_id}')
+
+    # ((1, 0, 0, 0), (1, 0, 0, 0))
 
     get_notif_value = sqlite_manager.select(column='notification_band,notification_day,notification_traffic',
                                             table='User', where=f'chat_id = {chat_id}')
+    print(get_notif_status)
 
-    text = (f"BandWidth: {get_notif_value[0][0]}% | status: {get_notif_status[0][0]}"
-            f"\n\nPassed Period: {get_notif_value[0][1]} Day | status: {get_notif_status[0][1]}"
-            f"\n\nLeft Traffic: {get_notif_value[0][2]} GB | status: {get_notif_status[0][2]}")
+    band_width_status, period_status, left_traffic = [], [], []
+
+    for vps in get_notif_status:
+        band_width_status.append((vps[0], vps[1]))
+        period_status.append((vps[0], vps[2]))
+        left_traffic.append((vps[0], vps[3]))
+
+    print(band_width_status, period_status, left_traffic)
+    text = (f"BandWidth: {get_notif_value[0][0]}% | status: {band_width_status}"
+            f"\n\nPassed Period: {get_notif_value[0][1]} Day | status: {period_status}"
+            f"\n\nLeft Traffic: {get_notif_value[0][2]} GB | status: {left_traffic}")
+
 
     await context.bot.send_message(text=text, chat_id=chat_id)
 
