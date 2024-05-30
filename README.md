@@ -11,7 +11,7 @@ pip (Python package installer)
 ### Installation
 Clone the repository:
 
-1. git clone https://github.com/yourusername/projectname.git
+1. git clone https://github.com/Crimson-Amir/Virtualizor-Controller
 2. cd projectname
 3. Install the required dependencies:
 
