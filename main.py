@@ -245,7 +245,8 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ])
     else:
         # Process Virtualizor servers
-        if platform != 'solusvm':
+        if platform != 'solusvm' and virt_data:
+            text += "\n<b>[Virtualizor]</b>\n"
             for data_row in virt_data:
                 end_point, api_key, api_pass = data_row[2], data_row[3], data_row[4]
                 
@@ -254,24 +255,27 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 else:
                     get_result = await virtualizor_run([end_point], api_key, api_pass)
 
-                if get_result:
-                    text += f"\n<b>[Virtualizor]</b>\n{get_result[0][0]}\n"
+                if get_result and get_result[0][0]:
+                    text += f"{get_result[0][0]}\n"
                     if not special_vps:
                         keyboard.extend([[InlineKeyboardButton(f'[V] server {vs}', callback_data=f'virt_{vs}')] for vs in get_result[0][1]])
 
         # Process SolusVM servers
-        if platform != 'virtualizor':
+        if platform != 'virtualizor' and solus_data:
+            if not special_vps:
+                text += "\n<b>[SolusVM]</b>\n"
+            
             for data_row in solus_data:
                 base_url, api_key, server_id = data_row[2], data_row[3], data_row[4]
                 
-                if platform == 'solusvm' and special_vps:
+                if platform == 'solusvm' and special_vps and str(special_vps) == str(server_id):
                     get_result = await solusvm_run(base_url, api_key, server_id, special_vps=special_vps, get_detail=True)
-                else:
+                    if get_result and get_result[0][0]:
+                        text += f"{get_result[0][0]}\n"
+                elif not special_vps:
                     get_result = await solusvm_run(base_url, api_key, server_id)
-
-                if get_result:
-                    text += f"\n<b>[SolusVM]</b>\n{get_result[0][0]}\n"
-                    if not special_vps:
+                    if get_result and get_result[0][0]:
+                        text += f"{get_result[0][0]}\n"
                         keyboard.extend([[InlineKeyboardButton(f'[S] server {vs}', callback_data=f'solus_{vs}')] for vs in get_result[0][1]])
 
     if special_vps:
