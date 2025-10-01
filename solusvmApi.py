@@ -153,7 +153,7 @@ class RequestFactory:
 class SolusVM:
     @staticmethod
     async def execute_act(base_url, api_key, server_id):
-        url = f"{base_url.rstrip('/')}/api/servers/{server_id}"
+        url = f"{base_url.rstrip('/')}/api/v1/servers/{server_id}"
         
         headers = {
             'Authorization': f'Bearer {api_key}',
