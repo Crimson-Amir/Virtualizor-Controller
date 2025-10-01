@@ -110,7 +110,6 @@ class SortData:
             vps_info = [details]
         
         final_lines.extend(vps_info)
-        final_lines.append("\n\n• Select the desired VS to view details ⤵")
         
         return '\n'.join(final_lines), vps_name, usage_detail
 
