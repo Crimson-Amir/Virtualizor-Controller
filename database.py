@@ -17,7 +17,7 @@ def create_database(db_name='test'):
     
     # SolusVM API details
     c.execute('CREATE TABLE IF NOT EXISTS SOLUSVM_API_DETAIL(id integer primary key, chat_id INTEGER,'
-              'base_url text, api_key text UNIQUE, server_id text, date text,'
+              'base_url text, api_key text, server_id text, date text,'
               'FOREIGN KEY (chat_id) REFERENCES User (chat_id))')
     
     # Virtualizor VS notifications
