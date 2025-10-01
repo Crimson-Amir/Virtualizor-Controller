@@ -19,7 +19,7 @@ class SortData:
         if special_vps and str(special_vps) != vps_id:
             return "", [], {}
         
-        final_lines.append(f'\nVirtual server {vps_id}:')
+        final_lines.append(f'\n🔸 Virtual server {vps_id}:')
         vps_name.append(vps_id)
         
         # Get usage and limits
