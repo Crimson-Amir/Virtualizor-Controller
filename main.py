@@ -267,9 +267,11 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
             for data_row in solus_data:
                 base_url, api_key, server_id = data_row[2], data_row[3], data_row[4]
+                print(base_url, api_key, server_id)
                 
                 if platform == 'solusvm' and special_vps and str(special_vps) == str(server_id):
                     get_result = await solusvm_run(base_url, api_key, server_id, special_vps=special_vps, get_detail=True)
+                    print(get_result)
                     if get_result and get_result[0][0]:
                         text += f"{get_result[0][0]}\n"
                 elif not special_vps:
