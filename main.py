@@ -512,4 +512,38 @@ async def notification_statua(update: Update, context: ContextTypes.DEFAULT_TYPE
         virt_left_traffic.append((f'V{vps[0]}', vps[3]))
 
     for vps in get_solus_notif_status:
-        solus_band_width_status.append((f'S{vps[0]}',
+        solus_band_width_status.append((f'S{vps[0]}', vps[1]))
+        solus_period_status.append((f'S{vps[0]}', vps[2]))
+        solus_left_traffic.append((f'S{vps[0]}', vps[3]))
+
+    all_band = virt_band_width_status + solus_band_width_status
+    all_period = virt_period_status + solus_period_status
+    all_traffic = virt_left_traffic + solus_left_traffic
+
+    text = (f"BandWidth: {get_notif_value[0][0]}% | status: {all_band}"
+            f"\n\nPassed Period: {get_notif_value[0][1]} Day | status: {all_period}"
+            f"\n\nLeft Traffic: {get_notif_value[0][2]} GB | status: {all_traffic}")
+
+    await context.bot.send_message(text=text, chat_id=chat_id)
+
+
+# ==================== MAIN ====================
+
+if __name__ == '__main__':
+    application = ApplicationBuilder().token(telegram_bot_token).build()
+    application.add_handler(CommandHandler('start', start))
+
+    application.add_handler(CommandHandler('set_bandwith_notification', set_bandwith_notification))
+    application.add_handler(CommandHandler('set_period_notification', set_period_notification))
+    application.add_handler(CommandHandler('set_traffic_notification', set_traffic_notification))
+    application.add_handler(CommandHandler('notification_status', notification_statua))
+    application.add_handler(CommandHandler('clear_notification', clear_notification))
+
+    application.add_handler(virt_conv_handler)
+    application.add_handler(solus_conv_handler)
+    application.add_handler(CallbackQueryHandler(delete_vps, pattern=r'delete_virt_.*|delete_solus_.*'))
+    application.add_handler(CallbackQueryHandler(main_menu, pattern='main_menu'))
+    application.add_handler(CallbackQueryHandler(main_menu, pattern='solus_(.*)'))
+    application.add_handler(CallbackQueryHandler(main_menu, pattern='virt_(.*)'))
+    application.job_queue.run_repeating(notification_job, interval=check_every_min * 60, first=0)
+    application.run_polling()
