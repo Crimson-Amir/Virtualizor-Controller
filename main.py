@@ -208,6 +208,36 @@ solus_conv_handler = ConversationHandler(
 )
 
 
+# ==================== DELETE VPS HANDLER ====================
+
+@handle_error
+async def delete_vps(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Delete VPS from database"""
+    chat_id = update.effective_chat.id
+    data = update.callback_query.data
+    await update.callback_query.answer()
+    
+    if data.startswith('delete_virt_'):
+        vps_id = data.replace('delete_virt_', '')
+        try:
+            sqlite_manager.delete({'VS_NOTIFICATION': ['vps_id', vps_id]})
+            text = f"✅ Virtual server {vps_id} deleted from database"
+        except Exception as e:
+            text = f"❌ Error: {str(e)}"
+    
+    elif data.startswith('delete_solus_'):
+        vps_id = data.replace('delete_solus_', '')
+        try:
+            sqlite_manager.delete({'SOLUSVM_VS_NOTIFICATION': ['vps_id', vps_id]})
+            text = f"✅ Virtual server {vps_id} deleted from database"
+        except Exception as e:
+            text = f"❌ Error: {str(e)}"
+    
+    keyboard = [[InlineKeyboardButton('Main Menu', callback_data='main_menu')]]
+    await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='html',
+                                   reply_markup=InlineKeyboardMarkup(keyboard))
+
+
 # ==================== MAIN MENU ====================
 
 async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -216,7 +246,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     data = query.data
     await query.answer()
 
-    # Parse callback data
     platform = None
     special_vps = None
     get_detail = False
@@ -233,7 +262,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = "• "
     keyboard = [[InlineKeyboardButton('Refresh ↻', callback_data='main_menu')]]
 
-    # Get Virtualizor servers
     virt_data = sqlite_manager.select(table='API_DETAIL', where=f'chat_id = {chat_id}')
     solus_data = sqlite_manager.select(table='SOLUSVM_API_DETAIL', where=f'chat_id = {chat_id}')
 
@@ -244,7 +272,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton('Add SolusVM Account ➕', callback_data='add_solusvm')]
         ])
     else:
-        # Process Virtualizor servers
         if platform != 'solusvm' and virt_data:
             text += "\n<b>[Virtualizor]</b>\n"
             for data_row in virt_data:
@@ -260,7 +287,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     if not special_vps:
                         keyboard.extend([[InlineKeyboardButton(f'[V] server {vs}', callback_data=f'virt_{vs}')] for vs in get_result[0][1]])
 
-        # Process SolusVM servers
         if platform != 'virtualizor' and solus_data:
             if not special_vps:
                 text += "\n<b>[SolusVM]</b>\n"
@@ -279,7 +305,16 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
                         keyboard.extend([[InlineKeyboardButton(f'[S] server {vs}', callback_data=f'solus_{vs}')] for vs in get_result[0][1]])
 
     if special_vps:
-        keyboard = [[InlineKeyboardButton('Main Menu', callback_data='main_menu')]]
+        if data.startswith('virt_'):
+            keyboard = [
+                [InlineKeyboardButton('Delete VPS ❌', callback_data=f'delete_virt_{special_vps}')],
+                [InlineKeyboardButton('Main Menu', callback_data='main_menu')]
+            ]
+        elif data.startswith('solus_'):
+            keyboard = [
+                [InlineKeyboardButton('Delete VPS ❌', callback_data=f'delete_solus_{special_vps}')],
+                [InlineKeyboardButton('Main Menu', callback_data='main_menu')]
+            ]
 
     await context.bot.send_message(chat_id=chat_id, text=text, parse_mode='html',
                                    reply_markup=InlineKeyboardMarkup(keyboard))
@@ -288,7 +323,6 @@ async def main_menu(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==================== NOTIFICATION JOB ====================
 
 async def notification_job(context: ContextTypes.DEFAULT_TYPE):
-    # Get all API details
     get_all_virt_api = sqlite_manager.select(table='API_DETAIL')
     get_all_solus_api = sqlite_manager.select(table='SOLUSVM_API_DETAIL')
     
@@ -297,7 +331,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
     
     get_notification_setting = sqlite_manager.select(column='chat_id,notification_band,notification_day,notification_traffic', table='User')
 
-    # Process Virtualizor servers
     virt_api_data = [(data[1], data[2], data[3], data[4]) for data in get_all_virt_api]
 
     for chat_id, end_point, api_key, api_pass in virt_api_data:
@@ -326,7 +359,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 registare_to_now = details.get('register_to_now')
                 left_band = details.get('left_band')
 
-                # Bandwidth notification
                 if bandwidth_precent >= bandwidth_notification_precent and not check_notif[0][0]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 1}}, where=f'vps_id = {vs_id}')
                     text = bandwidth_notification_text.format(bandwidth_precent, f'[V]{vs_id}', left_band)
@@ -335,7 +367,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 elif check_notif[0][0] and bandwidth_precent < bandwidth_notification_precent:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_band': 0}}, where=f'vps_id = {vs_id}')
 
-                # Period notification
                 if registare_to_now >= period_notification_day and not check_notif[0][1]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 1}}, where=f'vps_id = {vs_id}')
                     text = period_notification_text.format(registare_to_now, f'[V]{vs_id}')
@@ -344,7 +375,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 elif check_notif[0][1] and registare_to_now < period_notification_day:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_day': 0}}, where=f'vps_id = {vs_id}')
 
-                # Traffic notification
                 if int(left_band) <= left_traffic_gb and not check_notif[0][2]:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 1}}, where=f'vps_id = {vs_id}')
                     text = traffic_notification_text.format(left_band, f'[V]{vs_id}')
@@ -353,7 +383,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 elif check_notif[0][2] and int(left_band) > left_traffic_gb:
                     sqlite_manager.update({'VS_NOTIFICATION': {'notification_traffic': 0}}, where=f'vps_id = {vs_id}')
 
-    # Process SolusVM servers
     solus_api_data = [(data[1], data[2], data[3], data[4]) for data in get_all_solus_api]
 
     for chat_id, base_url, api_key, server_id in solus_api_data:
@@ -382,7 +411,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 registare_to_now = details.get('register_to_now')
                 left_band = details.get('left_band')
 
-                # Bandwidth notification
                 if bandwidth_precent >= bandwidth_notification_precent and not check_notif[0][0]:
                     sqlite_manager.update({'SOLUSVM_VS_NOTIFICATION': {'notification_band': 1}}, where=f'vps_id = {vs_id}')
                     text = bandwidth_notification_text.format(bandwidth_precent, f'[S]{vs_id}', left_band)
@@ -391,7 +419,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 elif check_notif[0][0] and bandwidth_precent < bandwidth_notification_precent:
                     sqlite_manager.update({'SOLUSVM_VS_NOTIFICATION': {'notification_band': 0}}, where=f'vps_id = {vs_id}')
 
-                # Period notification
                 if registare_to_now >= period_notification_day and not check_notif[0][1]:
                     sqlite_manager.update({'SOLUSVM_VS_NOTIFICATION': {'notification_day': 1}}, where=f'vps_id = {vs_id}')
                     text = period_notification_text.format(registare_to_now, f'[S]{vs_id}')
@@ -400,7 +427,6 @@ async def notification_job(context: ContextTypes.DEFAULT_TYPE):
                 elif check_notif[0][1] and registare_to_now < period_notification_day:
                     sqlite_manager.update({'SOLUSVM_VS_NOTIFICATION': {'notification_day': 0}}, where=f'vps_id = {vs_id}')
 
-                # Traffic notification
                 if int(left_band) <= left_traffic_gb and not check_notif[0][2]:
                     sqlite_manager.update({'SOLUSVM_VS_NOTIFICATION': {'notification_traffic': 1}}, where=f'vps_id = {vs_id}')
                     text = traffic_notification_text.format(left_band, f'[S]{vs_id}')
@@ -486,36 +512,4 @@ async def notification_statua(update: Update, context: ContextTypes.DEFAULT_TYPE
         virt_left_traffic.append((f'V{vps[0]}', vps[3]))
 
     for vps in get_solus_notif_status:
-        solus_band_width_status.append((f'S{vps[0]}', vps[1]))
-        solus_period_status.append((f'S{vps[0]}', vps[2]))
-        solus_left_traffic.append((f'S{vps[0]}', vps[3]))
-
-    all_band = virt_band_width_status + solus_band_width_status
-    all_period = virt_period_status + solus_period_status
-    all_traffic = virt_left_traffic + solus_left_traffic
-
-    text = (f"BandWidth: {get_notif_value[0][0]}% | status: {all_band}"
-            f"\n\nPassed Period: {get_notif_value[0][1]} Day | status: {all_period}"
-            f"\n\nLeft Traffic: {get_notif_value[0][2]} GB | status: {all_traffic}")
-
-    await context.bot.send_message(text=text, chat_id=chat_id)
-
-
-# ==================== MAIN ====================
-
-if __name__ == '__main__':
-    application = ApplicationBuilder().token(telegram_bot_token).build()
-    application.add_handler(CommandHandler('start', start))
-
-    application.add_handler(CommandHandler('set_bandwith_notification', set_bandwith_notification))
-    application.add_handler(CommandHandler('set_period_notification', set_period_notification))
-    application.add_handler(CommandHandler('set_traffic_notification', set_traffic_notification))
-    application.add_handler(CommandHandler('notification_status', notification_statua))
-    application.add_handler(CommandHandler('clear_notification', clear_notification))
-
-    application.add_handler(virt_conv_handler)
-    application.add_handler(solus_conv_handler)
-    application.add_handler(CallbackQueryHandler(main_menu, pattern='main_menu'))
-    application.add_handler(CallbackQueryHandler(main_menu, pattern='solus_(.*)'))
-    application.job_queue.run_repeating(notification_job, interval=check_every_min * 60, first=0)
-    application.run_polling()
+        solus_band_width_status.append((f'S{vps[0]}',
