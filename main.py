@@ -212,7 +212,7 @@ solus_conv_handler = ConversationHandler(
 
 @handle_error
 async def delete_vps(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Delete VPS account from database (removes API credentials)"""
+    """Delete specific VPS from database"""
     chat_id = update.effective_chat.id
     data = update.callback_query.data
     await update.callback_query.answer()
@@ -220,42 +220,18 @@ async def delete_vps(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if data.startswith('delete_virt_'):
         vps_id = data.replace('delete_virt_', '')
         try:
-            # Get the API details for this VPS
-            api_details = sqlite_manager.select(table='API_DETAIL', where=f'chat_id = {chat_id}')
-            
-            if api_details:
-                # Delete the entire API credential entry (removes ALL VPS from that provider)
-                for api in api_details:
-                    sqlite_manager.delete({'API_DETAIL': ['api_key', api[3]]})
-                
-                # Delete all notifications associated with this chat
-                sqlite_manager.custom_multi(
-                    f"DELETE FROM VS_NOTIFICATION WHERE chat_id = {chat_id}"
-                )
-                text = f"✅ Virtualizor account and all its VPS deleted from database"
-            else:
-                text = "❌ No Virtualizor account found"
+            # Delete only this specific VPS from notification table
+            sqlite_manager.advanced_delete({'VS_NOTIFICATION': [['vps_id', int(vps_id)], ['chat_id', chat_id]]})
+            text = f"✅ Virtualizor VPS {vps_id} deleted from database"
         except Exception as e:
             text = f"❌ Error: {str(e)}"
     
     elif data.startswith('delete_solus_'):
         vps_id = data.replace('delete_solus_', '')
         try:
-            # Get the API details for this VPS
-            api_details = sqlite_manager.select(table='SOLUSVM_API_DETAIL', where=f'chat_id = {chat_id}')
-            
-            if api_details:
-                # Delete the entire API credential entry (removes ALL VPS from that provider)
-                for api in api_details:
-                    sqlite_manager.delete({'SOLUSVM_API_DETAIL': ['api_key', api[3]]})
-                
-                # Delete all notifications associated with this chat
-                sqlite_manager.custom_multi(
-                    f"DELETE FROM SOLUSVM_VS_NOTIFICATION WHERE chat_id = {chat_id}"
-                )
-                text = f"✅ SolusVM account and all its VPS deleted from database"
-            else:
-                text = "❌ No SolusVM account found"
+            # Delete only this specific VPS from notification table
+            sqlite_manager.advanced_delete({'SOLUSVM_VS_NOTIFICATION': [['vps_id', int(vps_id)], ['chat_id', chat_id]]})
+            text = f"✅ SolusVM VPS {vps_id} deleted from database"
         except Exception as e:
             text = f"❌ Error: {str(e)}"
     
